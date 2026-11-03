@@ -1,10 +1,15 @@
-# Pantau Cawangan
+# Pos Radar
 
 A Pos Malaysia dashboard for weather monitoring and branch delivery-disruption reporting.
 
-**Website:** [posweather.netlify.app](https://posweather.netlify.app/)
+**Documentation updated: 3 November 2026.** Includes the 30-day calendar, historical dashboard and compact PPL/PSM candidate list.
 
-**Status (27 October 2026):** production is published. The owner confirmed that email login, username login and user management work after correcting the Production Supabase secret and redeploying. The Netlify project is still Private, so access must be configured before sharing with staff.
+| Repository | Role |
+| --- | --- |
+| [SOPMIPOS/Pos-Radar](https://github.com/SOPMIPOS/Pos-Radar) | SO PMI production repository |
+| [hudahaz/Weather-App](https://github.com/hudahaz/Weather-App) | Personal development repository; changes are merged into SO PMI |
+
+Production hosting belongs to SO PMI. Use the production URL shown in its Netlify project; a repository update alone does not confirm a successful deployment.
 
 Repository documentation is written in English. Website labels and operational wording remain in Malay.
 
@@ -15,7 +20,7 @@ Repository documentation is written in English. Website labels and operational w
 - [Download the initial historical Excel file](https://github.com/hudahaz/Weather-App/raw/refs/heads/main/admin-data/Malaysia-Historical-Disaster-Starter.xlsx)
 - [Open the reusable ChatGPT prompt](admin-data/ChatGPT-Update-Prompt.txt)
 
-The starter has partial coverage for January 2025–September 2026. This release implements the rolling 30-day outlook and the admin Excel importer. The initial dataset is loaded automatically: 1,017 published records and 30 held for review. New records are previewed and validated before an active Admin confirms an append-only import.
+The starter has partial historical coverage. The bundled seed is used until a shared imported dataset is available. New records are previewed and validated before an active Admin confirms an append-only import. Duplicate records are skipped. Uncertain or conflicting records remain identifiable through review flags and source information; they should not be treated as independently verified incidents. Dataset totals change with imports, so use the current admin preview and dashboard counts.
 
 ## What the application does
 
@@ -35,11 +40,36 @@ The starter has partial coverage for January 2025–September 2026. This release
 
 Weather warnings and branch matching support operational review; they are not proof that every postcode or parcel in a flagged branch is affected.
 
+## 30-day calendar and historical dashboard
+
+The complete rolling 30-day calendar remains visible. Selecting a date shows the corresponding forecast or historical detail below it.
+
+- **Days 1–7:** available forecasts for the location selected in Ramalan 7 hari. Outlook cards show Malay weather conditions such as Hujan, Hujan renyai or Cerah berawan instead of temperature ranges.
+- **Days 8–30:** sourced historical records for the same calendar dates in the previous year. Observation snapshots match their observation date; event date ranges use inclusive matching. A missing record means coverage is unavailable, not that no disaster occurred.
+- **Semua negeri:** includes all states in the historical summary. It does not turn the first seven days into a nationwide forecast; those still follow the selected forecast location.
+
+For a historical date, the page displays:
+
+1. **Ringkasan sejarah mengikut tarikh:** counts of source records, flood records, states/WP with records and disaster types.
+2. **Negeri & jenis bencana:** a state-by-state table of counts for each available disaster type, following the selected date, state and disaster filters.
+3. **PPL / PSM berpotensi terlibat:** a compact list beside the table for the clicked state. Each branch appears once. This replaces the composition chart and the separate large district-by-district branch section.
+4. **Source references:** the original record details, observation dates, notes and source links follow directly after the dashboard.
+
+Clicking a state in the table changes the PPL/PSM panel. It does not change the top-level filters or narrow the reference list by itself. The historical dashboard is not shown for forecast dates.
+
+### How potential PPL/PSM matches work
+
+- **PPL:** normalized district names are matched to the branch district coverage within the same state.
+- **PSM candidates:** PSM postcodes are checked against the matched PPL postcode ranges within the same state.
+- The panel shows records without a district match and flags uncertain source records where applicable.
+- Postcode coverage can extend into neighbouring districts. These are candidates for preparedness checks, not confirmed current disruptions or precise flood-boundary matches. Confirm current impact through Laporan operasi.
+- Counts represent source records, not distinct flood incidents, affected people or confirmed affected branches. Repeated snapshots may describe the same event.
+
 ## Pages
 
 | Website page | Purpose |
 | --- | --- |
-| Laporan kaji cuaca | Daily and hourly forecasts, location/postcode search and weather monitoring maps |
+| Laporan kaji cuaca | Daily/hourly forecasts, location/postcode search, monitoring maps and the 30-day outlook with historical dashboard |
 | Ringkasan | Summary of affected branches and active operational disruptions |
 | Pecahan negeri & cawangan | State and branch breakdown, reasons and postcode coverage by SLA |
 | Laporan operasi | Create and maintain delivery-disruption reports; view active and resolved records |
@@ -57,7 +87,7 @@ Report reading is public at the application/database level. Adding, editing and 
 
 New passwords entered through account management must contain 8–128 characters. Supabase's own password policy also applies. Existing passwords are unchanged.
 
-**Password recovery is not complete:** the application does not yet include a recovery/change-password screen or recovery-link handling. Supabase's Site URL should use https://posweather.netlify.app rather than localhost, but correcting the URL alone does not complete recovery.
+**Password recovery is not complete:** the application does not yet include a recovery/change-password screen or recovery-link handling. Supabase's Site URL and allowed redirects should use the current production URL rather than localhost, but correcting the URL alone does not complete recovery.
 
 Deletion is permanent and requires confirmation. Use the resolved status (Selesai) when the record should remain in history.
 
@@ -68,7 +98,7 @@ Deletion is permanent and requires confirmation. Use the resolved status (Selesa
 | public/index.html | Current deployed application, including its bundled UI and embedded summary/branch views |
 | public/assets/pos-malaysia.svg | Supplied Pos Malaysia logo |
 | netlify/functions/ | Server endpoints for shared warnings, forecasts, login, account administration and report deletion |
-| netlify/functions/lib/ | Forecast conversion/cache support and JPS parsing |
+| netlify/functions/lib/ | Forecast conversion/cache support, JPS parsing, historical imports and the PSM catalogue |
 | setup/02-Admin-Protection.sql | Database protection for active Admin accounts |
 | setup/03-Manager-Access.sql | Manager state/branch access migration |
 | netlify.toml | Netlify publish directory, functions directory and response headers |
@@ -76,11 +106,12 @@ Deletion is permanent and requires confirmation. Use the resolved status (Selesa
 | NETLIFY-SETUP.md | Deployment, environment variables, database prerequisites and verification |
 | Root index.html, cawangan.html, core.js, style.css, pos-data.js and proxy.mjs | Original weather application/reference files retained from the earlier version |
 
-**Netlify publishes public, not the repository root.** Editing only the old root HTML or JavaScript files does not update the deployed bundled application. The current public/index.html is a prebuilt artifact; its separate authoring/build sources and automated test suite are not currently committed in this repository. Add those sources before establishing a repeatable local build workflow.
+**Netlify publishes public, not the repository root.** Editing only the old root HTML or JavaScript files does not update the deployed bundled application. The current public/index.html is a prebuilt artifact; its separate authoring/build sources are not currently committed in this repository. Historical features have editable modules and committed tests, listed below. Add the bundled application's authoring sources before establishing a repeatable full-application build workflow.
 
 ## Branches, commits and pull requests
 
-- **main** holds the approved production version. Updates to it trigger the linked Netlify production deployment.
+- **SOPMIPOS/Pos-Radar main** is the SO PMI production branch. Updates trigger the linked Netlify deployment, subject to the project's deployment settings and available credits.
+- Changes saved only to **hudahaz/Weather-App main** still need to be merged into SO PMI. Open a [cross-repository pull request](https://github.com/SOPMIPOS/Pos-Radar/compare/main...hudahaz:Weather-App:main?expand=1), review the changes, merge, then check the SO PMI Netlify deployment result. Personal repository commits do not automatically synchronize the team repository.
 - **codex/supabase-reporting-ui** was the development branch used for the reporting and forecast upgrade. Its changes were merged into main through [pull request #1](https://github.com/hudahaz/Weather-App/pull/1). It remains as the old development branch; it is not a second live application.
 - A **commit** is a saved set of changes with a description and history.
 - A **pull request** groups proposed changes for review and testing before merging them into main.
@@ -105,34 +136,38 @@ The website address is managed in Netlify and may change when the project is ren
 - **IPU:** APIMS station readings, with accumulated shared history.
 - **JPS:** current Public Infobanjir homepage notifications; historical readings are accumulated in the browser.
 - **Time:** displayed operational and forecast times use Malaysia time.
-- **Branch/postcode master:** the inherited snapshot contains 96 branches and 357 postcode ranges. Coverage, state assignments and SLA values need confirmation against the current operational master.
+- **Branch/postcode master:** the inherited snapshot contains 96 branches and 357 postcode ranges. The PSM catalogue adds 333 offices with 937 postcode entries; these entries do not supply SLA values or coordinates. Coverage, state assignments and SLA values need confirmation against the current operational master.
 
 Sekarang, Hari ini and 7 hari can show the same affected branches when current warnings overlap or older records have not been collected. These controls do not provide a complete historical archive.
 
 Maps show forecast locations, branches and monitoring stations, not flood boundaries or radar. A branch can cover several areas; an alert matched to one area may flag the whole branch.
 
-**The 30-day outlook is a historical awareness tool.** Days 1–7 use available live forecasts for the selected location; days 8–30 show sourced records on the same calendar dates in the previous year. It is not a flood prediction. The initial accepted records span 1 January 2025–28 February 2026 with partial coverage; 28 flagged records and two conflicting records are held for review. A missing record is a coverage gap. Admin imports persist in the site-wide `pantau-cawangan-history` Netlify Blobs store and survive redeployments. Existing Supabase authentication checks active Admin access before each upload and confirmation. No new SQL migration or environment key is required.
+**The 30-day outlook is a historical awareness tool.** Days 1–7 use available live forecasts for the selected location; days 8–30 show sourced records on the same calendar dates in the previous year. It is not a flood prediction. Historical coverage is partial, and uncertain/conflicting records carry review flags. A missing record is a coverage gap. Admin imports persist in the site-wide `pantau-cawangan-history` Netlify Blobs store and survive redeployments. Existing Supabase authentication checks active Admin access before each upload and confirmation. No new SQL migration or environment key is required.
 
 Shared warning refresh is limited to once per 30 minutes. Open summary/branch pages poll the shared snapshot every two minutes. Provider failures may leave explicitly stale cached data or an error; check source timestamps.
 
 ## Verification and next steps
 
-After the report-filter and ageing update, 40 automated checks passed in the authoring workspace, covering inclusive/default/reset date filters, independent active/inactive/both CSV filtering, PPL scope and the strict 72-hour ageing threshold, in addition to the existing access and forecast checks. They covered login and access, Manager scope, report editing/deletion, forecasts, JPS parsing and warning refresh. The owner also confirmed report persistence and Manager access in the deployed preview. These tests are not currently included in the repository.
+Run `npm ci` and `npm test` for the committed automated checks. These cover the historical calendar, workbook validation, import access, duplicates/conflicts, persistence and related catalogue behaviour. They do not replace browser checks of the bundled application or production permissions.
+
+For dashboard changes, check a forecast date, a historical date with records and an empty date; change state/disaster filters; click states in the table; confirm unique PPL/PSM lists and source references; and check the narrow-screen layout.
 
 Before wider rollout:
 1. Confirm branch/postcode/SLA master data.
 2. Remove or resolve clearly labelled test reports.
 3. Test production login, permissions, report creation/editing, photos, resolution and deletion with test data.
-4. Configure Netlify visitor access for the intended audience; the website has already been renamed to posweather.
+4. Configure SO PMI Netlify visitor access for the intended audience.
 5. Gather feedback from a small group of staff.
 
-Outstanding work includes completing email password recovery and collecting suitable historical flood records to link event locations to delivery areas.
+Outstanding work includes completing email password recovery and improving historical coverage and validating district/postcode candidate matches against the current operational master.
 
 
 ## Historical data implementation and tests
 
 - `public/history-core.mjs`: rolling Malaysia calendar and previous-year event/observation matching.
 - `public/history-ui.mjs` and `public/history.css`: outlook and admin import interface.
+- `public/history-dashboard.mjs`: historical KPIs, state/disaster table and compact unique PPL/PSM lists.
+- `public/history-branches.mjs`: branch district/postcode and PSM snapshot used by the dashboard. Keep it synchronized with the approved branch master and `netlify/functions/lib/psm-catalog.mjs` when coverage changes.
 - `netlify/functions/historical-data.mjs`: public read and authenticated Admin preview/confirm endpoint.
 - `netlify/functions/lib/history-*`: bounded XLSX parser, validation, initial records and import persistence.
 - `public/admin-historical-data.html` and `public/admin-data/`: easily accessible guide, prompt and starter workbook.
