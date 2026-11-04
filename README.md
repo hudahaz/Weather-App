@@ -2,7 +2,7 @@
 
 A Pos Malaysia dashboard for weather monitoring and branch delivery-disruption reporting.
 
-**Documentation updated: 3 November 2026.** Includes the 30-day calendar, historical dashboard and compact PPL/PSM candidate list.
+**Documentation updated: 4 November 2026.** Includes multi-state filters, per-location BIT entry, the 30-day calendar and historical PPL/PSM dashboard.
 
 | Repository | Role |
 | --- | --- |
@@ -27,7 +27,7 @@ The starter has partial historical coverage. The bundled seed is used until a sh
 - Shows daily and hourly weather forecasts, including temperature and precipitation for the source's stated time intervals.
 - Displays MET weather warnings, APIMS air-quality readings and JPS flood/water-level warnings with distinct category colours.
 - Highlights potentially affected branches and their postcode coverage.
-- Collects operational reports with branch, postcode, multiple locations, BIT route code, pending-item counts, remarks and optional photos.
+- Collects operational reports with branch, postcode, multiple locations with their own BIT route codes, pending-item counts, remarks and optional photos.
 - Records the last editor's username and update time.
 - Shows active operational disruptions in summary and branch views; resolved reports remain in operations history.
 - Supports report search, inclusive report-date ranges (blank dates mean all dates), CSV export, active/resolved totals and confirmed permanent deletion.
@@ -39,6 +39,20 @@ The starter has partial historical coverage. The bundled seed is used until a sh
 - Provides Admin, Manager and User accounts.
 
 Weather warnings and branch matching support operational review; they are not proof that every postcode or parcel in a flagged branch is affected.
+
+## Multi-state filters and location/BIT entry
+
+- Weather, Ringkasan, branch breakdown, historical outlook, operations and the Admin user list support multiple selected states. Empty selection means all states; multiple selections include matches in any selected state. This changes viewing filters only, never account permissions.
+- Operations CSV copies the selected states and offers branches across those states. Summary counts, affected branches and branch CSV respect the selected scope. MET/IPU/JPS source-reference tables remain general reference lists.
+- Weather state selection narrows location choices and map markers. The forecast itself remains for one selected location. Outlook's state filter scopes historical and operational records, not a combined weather forecast.
+- Report entry remains one branch and postcode per report. Add and edit up to 20 location/BIT pairs; both values are required. The report table shows each location with its own BIT. Search and CSV include the paired values. Item counts remain totals for the report.
+- Existing records keep their legacy report-wide BIT. They are labelled as unconfirmed location mappings, and editors must check the copied BIT for each location when saving. No existing reports are automatically rewritten.
+
+**Deployment prerequisite:** run [setup/04-Location-BIT.sql](setup/04-Location-BIT.sql) in the existing Supabase project's SQL Editor before deploying this frontend. It adds nullable `location_bits` JSONB with validation, preserves existing records and RLS, and refreshes the API schema. Back up production normally before schema changes. The new code retains `locations` and a compatibility `bit` value for existing consumers.
+
+Validation: `npm test` covers state filtering, CSV selection, location/BIT validation and legacy compatibility. Browser checks use an isolated in-memory report adapter for save/edit; they do not prove production persistence. The SQL migration still needs to be applied to production.
+
+Photos remain one optional JPEG/PNG/WebP per report, up to 4 MB. Multiple-photo support is a separate proposed change. Store files in Supabase Storage and references in report data; compress before upload, set a practical per-report limit and monitor capacity. Storage is not unlimited or automatically free as usage grows. No billing upgrade or photo deletion is performed by this update.
 
 ## 30-day calendar and historical dashboard
 
@@ -111,7 +125,7 @@ Deletion is permanent and requires confirmation. Use the resolved status (Selesa
 ## Branches, commits and pull requests
 
 - **SOPMIPOS/Pos-Radar main** is the SO PMI production branch. Updates trigger the linked Netlify deployment, subject to the project's deployment settings and available credits.
-- Changes saved only to **hudahaz/Weather-App main** still need to be merged into SO PMI. Open a [cross-repository pull request](https://github.com/SOPMIPOS/Pos-Radar/compare/main...hudahaz:Weather-App:main?expand=1), review the changes, merge, then check the SO PMI Netlify deployment result. Personal repository commits do not automatically synchronize the team repository.
+- Personal and SO PMI repositories must be synchronized explicitly. After leaving the fork network, use separate branches/commits in each repository rather than a cross-fork pull request. Private SO PMI access must be granted to the connected GitHub app. Deploy only from SO PMI.
 - **codex/supabase-reporting-ui** was the development branch used for the reporting and forecast upgrade. Its changes were merged into main through [pull request #1](https://github.com/hudahaz/Weather-App/pull/1). It remains as the old development branch; it is not a second live application.
 - A **commit** is a saved set of changes with a description and history.
 - A **pull request** groups proposed changes for review and testing before merging them into main.

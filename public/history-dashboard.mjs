@@ -33,7 +33,7 @@ export function renderHistoryDashboard({ records, date, state, type, forecastDay
  panel.hidden = forecastDay;
  if (forecastDay) return;
  const key = [date, state, type].join('|');
- if (key !== selectionKey) { selectedState = state; selectionKey = key; }
+ if (key !== selectionKey) { selectedState = Array.isArray(state) ? state[0] : state; selectionKey = key; }
  const model = summarize(records);
  if (!model.states.some(row => row.name === selectedState)) selectedState = model.states[0]?.name || '';
  const floodCount = records.filter(record => record.disaster_type === 'flood').length;

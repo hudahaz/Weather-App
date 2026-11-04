@@ -13,7 +13,7 @@ const forecastLabel=day=>{
 };
 function safeLink(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)?e(u.href):'#';}catch{return '#';}}
 function showError(id,text=''){$(id).textContent=text;$(id).hidden=!text;}
-function options(id,values,label,display=x=>x){const old=$(id).value;$(id).innerHTML='<option value="">'+label+'</option>'+values.map(v=>'<option value="'+e(v)+'">'+e(display(v))+'</option>').join('');if(values.includes(old))$(id).value=old;}
+function options(id,values,label,display=x=>x){const old=id==='outlookState'?PosRadar.getStates($(id)):$(id).value;$(id).innerHTML='<option value="">'+label+'</option>'+values.map(v=>'<option value="'+e(v)+'">'+e(display(v))+'</option>').join('');if(id==='outlookState')PosRadar.setStates($(id),old);else if(values.includes(old))$(id).value=old;}
 function metadata(value){const s=value.summary,counts={};for(const row of value.records||[])counts[row.state]=(counts[row.state]||0)+1;const dominant=Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];return s.count.toLocaleString()+' rekod diterbitkan · '+(s.from?format(s.from)+' – '+format(s.to):'Tiada tarikh')+' · '+value.reviewCount+' rekod berflag belum disahkan (dipaparkan). Liputan separa.'+(dominant&&dominant[1]>s.count/2?' '+Math.round(100*dominant[1]/s.count)+'% rekod dalam set ini ialah '+dominant[0]+'. Liputan negeri lain belum lengkap; negeri yang tiada rekod tidak disahkan bebas bencana.':'');}
 async function loadHistory(){
  $('historyReload').disabled=true;
@@ -32,7 +32,7 @@ function render(){
  $('historyCoverage').textContent=snapshot?metadata(snapshot)+(snapshot.updatedAt?' Dikemas kini '+new Date(snapshot.updatedAt).toLocaleString('ms-MY',{timeZone:'Asia/Kuala_Lumpur'})+' oleh '+snapshot.updatedBy+'.':' Set permulaan telah dimuatkan.'):'Memuatkan rekod sejarah…';
  showError('outlookError',historyError+(historyError&&snapshot?' Memaparkan salinan terakhir yang berjaya dimuatkan.':''));
  $('outlookRange').textContent=format(dates[0])+' – '+format(dates.at(-1));
- const rows=snapshot?.records||[],state=$('outlookState').value,type=$('outlookType').value;
+ const rows=snapshot?.records||[],state=PosRadar.getStates($('outlookState')),type=$('outlookType').value;
  const active=currentOperations(reports,dates[0],state);
  $('currentOperationsCount').textContent=reportsLoaded?active.length+' laporan aktif':'Belum dimuatkan';
  $('currentOperationsRecords').innerHTML=!reportsLoaded?'<p>Laporan operasi belum dapat dimuatkan. Tiada kesimpulan dibuat tentang gangguan semasa.</p>':active.length?active.slice(0,4).map(r=>operationCard(r,false)).join('')+(active.length>4?'<p class="hint">4 daripada '+active.length+' laporan ditunjukkan.</p>':''):'<p>Tiada laporan operasi aktif yang dimuatkan untuk negeri dipilih.</p>';
@@ -53,7 +53,7 @@ function render(){
 }
 function operationCard(report,historical){
  const total=['poslaju','posdaftar','mel'].reduce((n,key)=>n+(Number(report[key])||0),0);
- return '<article class="outlook-record operation-record"><span class="outlook-kicker">Operasi dalaman · '+e(report.state)+'</span><h3>'+e(report.branch)+'</h3><p>Poskod '+e(report.postcode)+' · BIT '+e(report.bit)+'</p><p>'+e((report.locations||[]).join(' · '))+'</p><p>'+e(report.remarks||'Tiada catatan punca gangguan.')+'</p><p>Tarikh laporan: '+e(format(report.report_date))+'</p>'+(historical?'<p class="hint">Status rekod kini: '+(report.status==='resolved'?'Selesai':'Aktif')+'. Butiran tersimpan mungkin telah disunting selepas tarikh laporan.</p>':'<p>'+total.toLocaleString()+' item tertunda · Kemas kini terakhir '+e(report.updated_at?new Date(report.updated_at).toLocaleString('ms-MY',{timeZone:'Asia/Kuala_Lumpur'}):'tidak diketahui')+'</p>')+'</article>';
+ return '<article class="outlook-record operation-record"><span class="outlook-kicker">Operasi dalaman · '+e(report.state)+'</span><h3>'+e(report.branch)+'</h3><p>Poskod '+e(report.postcode)+' · BIT '+e(report.bit)+'</p><p>'+e(PosRadar.pairText(report))+'</p><p>'+e(report.remarks||'Tiada catatan punca gangguan.')+'</p><p>Tarikh laporan: '+e(format(report.report_date))+'</p>'+(historical?'<p class="hint">Status rekod kini: '+(report.status==='resolved'?'Selesai':'Aktif')+'. Butiran tersimpan mungkin telah disunting selepas tarikh laporan.</p>':'<p>'+total.toLocaleString()+' item tertunda · Kemas kini terakhir '+e(report.updated_at?new Date(report.updated_at).toLocaleString('ms-MY',{timeZone:'Asia/Kuala_Lumpur'}):'tidak diketahui')+'</p>')+'</article>';
 }
 function selectTab(outlook){$('existingForecast').hidden=outlook;$('newOutlook').hidden=!outlook;for(const [id,on] of [['existingForecastTab',!outlook],['newOutlookTab',outlook]]){$(id).classList.toggle('selected',on);$(id).setAttribute('aria-selected',String(on));}if(outlook)render();else window.dispatchEvent(new Event('resize'));}
 function clearPreview(){preview=null;$('importPreview').hidden=true;$('confirmHistoryImport').disabled=true;showError('importError');$('importResult').textContent='';}
@@ -77,8 +77,8 @@ export async function initHistoryUI(){
  $('downloadHeldHistory').textContent='Muat turun rekod berflag (CSV)';
  $('existingForecastTab').onclick=()=>selectTab(false);$('newOutlookTab').onclick=()=>selectTab(true);
  $('historyReload').onclick=()=>Promise.allSettled([loadHistory(),bridge()?.refreshReports()]);$('outlookState').onchange=$('outlookType').onchange=render;
- $('showCurrentOperations').onclick=()=>bridge()?.openReports({state:$('outlookState').value,status:'active'});
- $('showHistoricalOperations').onclick=()=>bridge()?.openReports({state:$('outlookState').value,date:previousYear(dates[selected]),status:''});
+ $('showCurrentOperations').onclick=()=>bridge()?.openReports({state:PosRadar.getStates($('outlookState')),status:'active'});
+ $('showHistoricalOperations').onclick=()=>bridge()?.openReports({state:PosRadar.getStates($('outlookState')),date:previousYear(dates[selected]),status:''});
  $('outlookCalendar').onclick=event=>{const button=event.target.closest('[data-outlook-day]');if(button){selected=Number(button.dataset.outlookDay);render();}};
  $('historyFile').onchange=()=>{clearPreview();controls();};
  $('previewHistory').onclick=async()=>{clearPreview();const file=$('historyFile').files[0];if(!file)return;if(!/\.xlsx$/i.test(file.name)||file.size>2*1024*1024){showError('importError','Pilih fail .xlsx sehingga 2 MB.');return;}busy=true;controls();try{preview=await bridge().request('preview',file);renderImportPreview(preview);}catch(err){showError('importError',err.message);}finally{busy=false;controls();}};
