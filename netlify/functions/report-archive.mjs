@@ -15,9 +15,9 @@ export function createHandler({env=process.env,request=fetch}={}){
    const pub=env.SUPABASE_PUBLISHABLE_KEY||PUBLIC_DEFAULT;
    const secret=env.SUPABASE_SECRET_KEY||env.SUPABASE_SERVICE_ROLE_KEY;
    if(!secret)return reply({error:'Tetapkan SUPABASE_SECRET_KEY dalam Netlify.'},503);
-   async function api(path,{method='GET',body,caller=false}={}){
+   async function api(path,{method='GET',body,caller=false,prefer}={}){
     const headers={apikey:caller?pub:secret,Authorization:caller?token:'Bearer '+secret};
-    if(body!==undefined)headers['Content-Type']='application/json';
+    if(body!==undefined)headers['Content-Type']='application/json';if(prefer)headers.Prefer=prefer;
     const res=await request(root+path,{method,headers,...(body===undefined?{}:{body:JSON.stringify(body)}),redirect:'error',signal:AbortSignal.timeout(20000)});
     return res;
    }
@@ -92,8 +92,9 @@ export function createHandler({env=process.env,request=fetch}={}){
      if(!new RegExp('^'+r.id+'/[0-9a-f-]+\\.(jpg|jpeg|png|webp)$','i').test(r.photo_path)){result.failed.push(r.id);continue;}
      // Conditional update prevents changing a report that another user has edited.
      const query='/rest/v1/operation_reports?id=eq.'+r.id+'&status=eq.resolved&version=eq.'+r.version+'&photo_path=eq.'+encodeURIComponent(r.photo_path);
-     const response=await api(query,{method:'PATCH',body:{photo_path:null}});
+     const response=await api(query+'&select=id',{method:'PATCH',body:{photo_path:null},prefer:'return=representation'});
      if(!response.ok){result.failed.push(r.id);continue;}
+     const changed=await response.json();if(changed?.length!==1){result.failed.push(r.id+' (concurrent edit)');continue;}
      const removed=await api('/storage/v1/object/report-photos',{method:'DELETE',body:{prefixes:[r.photo_path]}});
      if(removed.ok)result.deleted++;else result.failed.push(r.id+' (storage cleanup)');
     }
